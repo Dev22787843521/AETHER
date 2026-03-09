@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AETHER Event Horizon</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
+        
+        body {
+            background-color: #000;
+            color: #fff;
+            font-family: 'Space Mono', monospace;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        .glass {
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(168, 85, 247, 0.2);
+        }
+
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+        .message-user {
+            background: #9333ea;
+            border-bottom-right-radius: 0;
+            box-shadow: 0 10px 15px -3px rgba(147, 51, 234, 0.3);
+        }
+
+        .message-ai {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-bottom-left-radius: 0;
+        }
+
+        #bg-video {
+            position: fixed;
+            right: 0;
+            bottom: 0;
+            min-width: 100%;
+            min-height: 100%;
+            opacity: 0.4;
+            z-index: -1;
+            filter: grayscale(0.5);
+        }
+
+        @keyframes pulse-red {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+            70% { box-shadow: 0 0 0 15px rgba(239, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+
+        .listening {
+            animation: pulse-red 2s infinite;
+            border-color: #ef4444 !important;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Fundo de Vídeo -->
+    <video autoplay muted loop id="bg-video">
+        <source src="PinDown.io_@ETXAaron_1773090600.mp4" type="video/mp4">
+    </video>
+
+    <!-- Overlay de Autenticação -->
+    <div id="auth-screen" class="fixed inset-0 z-[100] flex items-center justify-center p-6 transition-all duration-500">
+        <div class="glass w-full max-w-md p-10 rounded-[3rem] shadow-2xl animate-in zoom-in">
+            <div class="flex flex-col items-center mb-8">
+                <div class="w-16 h-16 bg-purple-600/10 rounded-2xl flex items-center justify-center border border-purple-500/30 mb-4">
+                    <i class="fas fa-terminal text-2xl text-white"></i>
+                </div>
+                <h2 class="text-xl font-black tracking-[0.4em] uppercase">AETHER_AUTH</h2>
+            </div>
+            
+            <div class="space-y-4">
+                <button onclick="enterApp(false)" class="w-full bg-purple-600 hover:bg-purple-500 text-white py-4 rounded-xl font-bold text-[10px] tracking-[0.3em] transition-all flex items-center justify-center group uppercase">
+                    Inicializar Sessão <i class="fas fa-chevron-right ml-2 group-hover:translate-x-1 transition-transform"></i>
+                </button>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <button onclick="enterApp(false)" class="flex items-center justify-center space-x-3 bg-white/5 border border-white/10 hover:bg-white/10 p-3.5 rounded-xl transition-all">
+                        <i class="fab fa-google text-white text-sm"></i>
+                        <span class="text-[8px] uppercase font-bold tracking-widest">Google</span>
+                    </button>
+                    <button onclick="enterApp(false)" class="flex items-center justify-center space-x-3 bg-white/5 border border-white/10 hover:bg-white/10 p-3.5 rounded-xl transition-all">
+                        <i class="fab fa-github text-white text-sm"></i>
+                        <span class="text-[8px] uppercase font-bold tracking-widest">GitHub</span>
+                    </button>
+                </div>
+
+                <button onclick="enterApp(true)" class="w-full mt-4 flex items-center justify-center space-x-3 bg-purple-900/10 border border-purple-500/20 hover:bg-purple-900/30 p-4 rounded-xl transition-all">
+                    <i class="fas fa-flask text-purple-400"></i>
+                    <span class="text-[9px] text-white font-black tracking-widest uppercase">Acesso Demo</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Interface Principal -->
+    <div id="main-app" class="hidden h-screen flex overflow-hidden">
+        
+        <!-- Sidebar -->
+        <div class="w-20 flex flex-col items-center py-10 space-y-8 bg-black/40 backdrop-blur-2xl border-r border-white/5 z-50">
+            <button onclick="switchTab('chat')" class="p-4 rounded-2xl text-purple-500 bg-purple-600/10"><i class="fas fa-comment-alt"></i></button>
+            <button onclick="switchTab('tasks')" class="p-4 rounded-2xl text-white/30 hover:bg-white/5"><i class="fas fa-tasks"></i></button>
+            <div class="flex-1"></div>
+            <button onclick="logout()" class="p-4 text-white/20 hover:text-red-500 transition-colors"><i class="fas fa-sign-out-alt"></i></button>
+        </div>
+
+        <!-- Conteúdo -->
+        <div class="flex-1 flex flex-col p-6 relative">
+            
+            <div id="chat-tab" class="h-full flex flex-col">
+                <!-- Visualização do Core -->
+                <div class="h-1/3 flex flex-col items-center justify-center relative">
+                    <canvas id="core-canvas" width="400" height="400" class="max-w-full h-auto drop-shadow-[0_0_40px_rgba(168,85,247,0.2)]"></canvas>
+                    <button id="mic-btn" class="absolute w-16 h-16 rounded-full border border-white/10 bg-white/5 flex items-center justify-center transition-all hover:bg-white/10">
+                        <i id="mic-icon" class="fas fa-microphone text-purple-400 text-xl"></i>
+                    </button>
+                </div>
+
+                <!-- Lista de Mensagens -->
+                <div id="message-container" class="flex-1 overflow-y-auto px-4 space-y-4 mb-4 scrollbar-hide">
+                    <!-- Mensagens inseridas aqui via JS -->
+                </div>
+
+                <!-- Input -->
+                <div class="max-w-3xl w-full mx-auto">
+                    <div class="glass p-2 rounded-2xl flex items-center shadow-2xl">
+                        <input type="text" id="chat-input" placeholder="DIGITE UM COMANDO OU CONVERSE..." 
+                            class="flex-1 bg-transparent border-none outline-none p-4 text-[10px] tracking-[0.2em] uppercase text-white placeholder:text-white/10 font-bold">
+                        <button onclick="handleSend()" class="p-4 text-purple-600 hover:text-white transition-colors">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab de Bloqueio -->
+            <div id="lock-tab" class="hidden h-full flex flex-col items-center justify-center space-y-6">
+                <i class="fas fa-lock text-6xl text-purple-600/20"></i>
+                <div class="text-center">
+                    <p class="text-[12px] font-black tracking-[0.4em] uppercase">Módulo Restrito</p>
+                    <p class="text-[8px] text-white/30 uppercase mt-2 tracking-widest">Efetue login para gerenciar tarefas de sistema.</p>
+                </div>
+                <button onclick="logout()" class="bg-purple-600 px-8 py-3 rounded-xl text-[9px] font-bold tracking-widest uppercase hover:bg-purple-500 transition-all">Ir para Login</button>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        const apiKey = ""; // Chave injetada em tempo de execução
+        let isDemo = false;
+        let assistantState = 'idle'; // idle, listening, processing, speaking
+        let messages = [];
+
+        // Elementos DOM
+        const authScreen = document.getElementById('auth-screen');
+        const mainApp = document.getElementById('main-app');
+        const chatInput = document.getElementById('chat-input');
+        const msgContainer = document.getElementById('message-container');
+        const micBtn = document.getElementById('mic-btn');
+        const micIcon = document.getElementById('mic-icon');
+        const canvas = document.getElementById('core-canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Configuração de Voz
+        const synth = window.speechSynthesis;
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition = null;
+
+        if (SpeechRecognition) {
+            recognition = new SpeechRecognition();
+            recognition.lang = 'pt-PT';
+            recognition.onstart = () => setAssistantState('listening');
+            recognition.onresult = (e) => {
+                const text = e.results[0][0].transcript;
+                processMessage(text, true);
+            };
+            recognition.onend = () => setAssistantState('idle');
+            recognition.onerror = () => setAssistantState('idle');
+        }
+
+        micBtn.onclick = () => {
+            if (assistantState === 'listening') {
+                recognition.stop();
+            } else {
+                synth.cancel();
+                recognition.start();
+            }
+        };
+
+        function setAssistantState(state) {
+            assistantState = state;
+            micIcon.className = state === 'listening' ? 'fas fa-microphone text-red-500 animate-pulse' : 'fas fa-microphone text-purple-400 text-xl';
+            micBtn.className = `absolute w-16 h-16 rounded-full border flex items-center justify-center transition-all ${state === 'listening' ? 'listening bg-red-500/10 border-red-500' : 'bg-white/5 border-white/10 hover:bg-white/10'}`;
+        }
+
+        function enterApp(demo) {
+            isDemo = demo;
+            authScreen.classList.add('opacity-0', 'pointer-events-none');
+            setTimeout(() => {
+                authScreen.classList.add('hidden');
+                mainApp.classList.remove('hidden');
+                mainApp.classList.add('animate-in', 'fade-in', 'duration-700');
+                addMessage('model', `Sistema AETHER inicializado. Como posso ajudar, ${isDemo ? 'Visitante' : 'Operador'}?`);
+            }, 500);
+        }
+
+        function logout() {
+            location.reload();
+        }
+
+        function addMessage(role, text) {
+            messages.push({ role, parts: [{ text }] });
+            const div = document.createElement('div');
+            div.className = `flex ${role === 'user' ? 'justify-end' : 'justify-start'} animate-in slide-in-from-bottom-2 duration-300`;
+            
+            div.innerHTML = `
+                <div class="max-w-[80%] p-4 rounded-2xl text-[10px] tracking-wider uppercase font-bold leading-relaxed shadow-lg ${
+                    role === 'user' ? 'message-user text-white' : 'message-ai text-purple-200 backdrop-blur-md'
+                }">
+                    ${text}
+                </div>
+            `;
+            msgContainer.appendChild(div);
+            msgContainer.scrollTo({ top: msgContainer.scrollHeight, behavior: 'smooth' });
+        }
+
+        async function processMessage(text, fromVoice = false) {
+            if (!text.trim()) return;
+            
+            addMessage('user', text);
+            chatInput.value = '';
+            setAssistantState('processing');
+
+            // Filtro de Tarefas (Bloqueio Demo)
+            const taskKeywords = ['abrir', 'executar', 'aceder', 'apagar', 'pasta', 'app', 'software', 'sistema'];
+            const isTask = taskKeywords.some(word => text.toLowerCase().includes(word));
+
+            if (isDemo && isTask) {
+                const error = "Tarefa de sistema detectada. No Modo Demo, estas funções estão bloqueadas por segurança. Por favor, autentique-se para obter acesso total.";
+                setTimeout(() => {
+                    addMessage('model', error);
+                    if (fromVoice) speak(error);
+                    setAssistantState('idle');
+                }, 600);
+                return;
+            }
+
+            // Chamada API Gemini
+            try {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: messages.map(m => ({ role: m.role, parts: m.parts })),
+                        systemInstruction: { parts: [{ text: "És o AETHER, um assistente futurista. Respostas curtas, técnicas e em Português de Portugal." }] }
+                    })
+                });
+
+                const data = await response.json();
+                const aiResponse = data.candidates[0].content.parts[0].text;
+                
+                addMessage('model', aiResponse);
+                if (fromVoice) speak(aiResponse);
+                else setAssistantState('idle');
+
+            } catch (err) {
+                addMessage('model', "Erro na ligação ao núcleo central.");
+                setAssistantState('idle');
+            }
+        }
+
+        function speak(text) {
+            const utter = new SpeechSynthesisUtterance(text);
+            utter.lang = 'pt-PT';
+            utter.onstart = () => setAssistantState('speaking');
+            utter.onend = () => setAssistantState('idle');
+            synth.speak(utter);
+        }
+
+        function handleSend() {
+            processMessage(chatInput.value);
+        }
+
+        chatInput.onkeydown = (e) => {
+            if (e.key === 'Enter') handleSend();
+        };
+
+        function switchTab(tab) {
+            document.getElementById('chat-tab').classList.toggle('hidden', tab !== 'chat');
+            document.getElementById('lock-tab').classList.toggle('hidden', tab !== 'tasks');
+        }
+
+        // Animação do Canvas (Core)
+        let frame = 0;
+        function draw() {
+            if (mainApp.classList.contains('hidden')) return requestAnimationFrame(draw);
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            frame++;
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+            
+            let r = 168, g = 85, b = 247; // Roxo base
+            if (assistantState === 'listening') [r, g, b] = [239, 68, 68];
+            if (assistantState === 'processing') [r, g, b] = [59, 130, 246];
+
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.rotate(frame * 0.005);
+            
+            for (let i = 0; i < 60; i++) {
+                const angle = (i / 60) * Math.PI * 2;
+                const vMod = (assistantState !== 'idle') ? Math.sin(angle * 4 + frame * 0.1) * 15 : 0;
+                const rad = 100 + vMod;
+                
+                ctx.beginPath();
+                ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${isDemo ? 0.1 : 0.4})`;
+                ctx.lineWidth = 1.5;
+                ctx.moveTo(Math.cos(angle) * rad, Math.sin(angle) * rad);
+                ctx.lineTo(Math.cos(angle) * (rad + 30), Math.sin(angle) * (rad + 30));
+                ctx.stroke();
+            }
+            ctx.restore();
+            requestAnimationFrame(draw);
+        }
+        draw();
+    </script>
+</body>
+</html>
